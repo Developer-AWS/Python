@@ -1,0 +1,51 @@
+---
+- hosts: hostip or name
+  remote_user: user-default
+  
+  tasks:
+
+    #########Adicionando o repositório #########
+    - name: Install add-apt-repostory      
+      apt: name=software-properties-common state=latest
+
+    - name: Add Oracle Java Repository     
+      apt_repository: repo='ppa:webupd8team/java'
+
+    - name: Accept Java 8 License      
+      debconf: name='oracle-java8-installer' question='shared/accepted-oracle-license-v1-1' value='true' vtype='select'
+    ######## Instalando o Java 8 ###########
+    - name: Install Oracle Java 8      
+      apt: name={{item}} state=latest
+      with_items:
+        - oracle-java8-installer
+        - ca-certificates
+        - oracle-java8-set-default
+
+      ###### Baixando o Jboss ########
+    - name: Download do jboss/wildfly
+      get_url: url=https://s3.amazonaws.com/wildflyversions/wildfly.zip dest=/dados/wildfly.zip mode=0777
+      
+      ###### Extraindo arquivo ########
+    - name: Extraindo arquivos...
+      unarchive: src=/dados/wildfly.zip dest=/dados/ copy=no 
+      remote_src: yes
+
+    - name: Add group "wildfly"
+      group: name=wildfly
+      
+    
+    - name: Add user "wildfly" permissions
+      user: name=wildfly group=wildfly home=/dados/
+      
+       
+    ######### Wildfly change directory for wildfly#########
+    - name: Copy
+      #file: path=/dados/ owner=wildfly group=wildfly state=directory recurse=yes
+      shell: cp /dados/wildfly/docs/contrib/scripts/init.d/wildfly-init-debian.sh /etc/init.d/wildfly
+      shell: cp /dados/wildfly/docs/contrib/scripts/init.d/wildfly.conf /etc/default/wildfly
+      shell: ln -s wildfly /dados/wildfly
+      shell: chown wildfly:wildfly /dados
+      shell: nohup /dados/wildfly/bin/standalone.sh &
+      
+
+    
