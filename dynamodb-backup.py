@@ -8,9 +8,9 @@ from pprint import pprint
 dynamo = boto3.client('dynamodb')
 ses = boto3.client('ses')
 sns = boto3.client('sns')
-email_from = 'suporte@ipsense.com.br'
-email_to = 'suporte@ipsense.com.br'
-email_cc = 'suporte@ipsense.com.br'
+email_from = 'xxx@gmail.com'
+email_to = 'xxx@gmail.com'
+email_cc = 'xxx@gmail.com'
 emaiL_subject = 'O Backup do Dynamodb foi executado com sucesso (conta do cliente) '
 email_body = 'O Backup do Dynamodb foi executado com sucesso, em caso de dúvida portaldesuporte@ipsense.com.br o backup da table: '
 current_time = datetime.now()
