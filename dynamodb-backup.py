@@ -8,12 +8,14 @@ from pprint import pprint
 dynamo = boto3.client('dynamodb')
 ses = boto3.client('ses')
 sns = boto3.client('sns')
-email_from = 'xxx@gmail.com'
-email_to = 'xxx@gmail.com'
-email_cc = 'xxx@gmail.com'
+email_from = 'suporte@ipsense.com.br'
+email_to = 'suporte@ipsense.com.br'
+email_cc = 'suporte@ipsense.com.br'
 emaiL_subject = 'O Backup do Dynamodb foi executado com sucesso (conta do cliente) '
 email_body = 'O Backup do Dynamodb foi executado com sucesso, em caso de dúvida portaldesuporte@ipsense.com.br o backup da table: '
 current_time = datetime.now()
+
+# FUNÇÃO DE BACKUP parans nome do backup
 def make_backup(name):
     try:
         ###### pegando concatenando nome do backup mais a data ######
@@ -28,7 +30,8 @@ def make_backup(name):
     except:
         send_sns()
         sys.exit("Erro ao realizar backup!")
-        
+
+# FUNÇÃO DE DELETAR BACKUP
 def delete_backup(name):
     try:
         print("Deleting")
@@ -52,12 +55,14 @@ def delete_backup(name):
             print(deletedArn['BackupDescription']['BackupDetails']['BackupStatus'])
     except:
         sys.exit("Erro ao realizar a limpeza de backups !!")
+# FUNÇÃO SNS E ROLE(ARN)
 def send_sns():
     sns_message = sns.publish(
-        TopicArn='XXXXXX ARN XXXXX',
+        TopicArn='arn:aws:sns:us-east-1:065274192387:dynamodb',
         Message='Dynamodb backup failed!'
     )
-    
+
+# FUNÇÃO DE ENVIO DE E-MAIL 
 def send_email(name):
     response = ses.send_email(
         Source = email_from,
