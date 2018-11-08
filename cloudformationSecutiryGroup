@@ -1,0 +1,31 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+
+    "Parameters": {
+    	"selectedVPCId": {
+            "Description": "Selecione uma VPC",
+            "Type": "AWS::EC2::VPC::Id"
+    	}
+    },
+    "Resources": {
+        "SGPingdomMagento": {
+          "Type": "AWS::EC2::SecurityGroup",
+          "Properties": {
+            "GroupDescription": "SG-Pingdom-Magento Security Group",
+            "Tags": [ { "Key": "Name", "Value": "SG-PingdomMagento-01" } ],
+            "VpcId": { "Ref": "selectedVPCId" },
+            "SecurityGroupIngress": [
+                
+                    {
+                        "IpProtocol": "tcp",
+                        "CidrIp": "5.172.196.188/32",
+                        "FromPort": "80",
+                        "ToPort": "80"
+                    }
+                     
+                ]
+            }
+        }
+       
+    }
+}
