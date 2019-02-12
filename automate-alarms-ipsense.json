@@ -1,0 +1,44 @@
+{
+    "AWSTemplateFormatVersion": "2010-09-09",
+    "Parameters" : {
+      "RecoveryInstance" : {
+        "Description" : "The EC2 instance ID to associate this alarm with.",
+        "Type" : "AWS::EC2::Instance::Id"
+      }
+    },
+    "Resources": {
+      "StatusCheckSystem": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmDescription": "Trigger a recovery when instance status check fails for 15 consecutive minutes.",
+          "Namespace": "AWS/EC2" ,
+          "MetricName": "StatusCheckFailed_System",
+          "Statistic": "Minimum",
+          "Period": "60",
+          "EvaluationPeriods": "5",
+          "ComparisonOperator": "GreaterThanThreshold",
+          "Threshold": "0",
+          "AlarmActions": [ {"Fn::Join" : ["", ["arn:aws:automate:", { "Ref" : "AWS::Region" }, ":ec2:recover" ]]} ],
+          "Dimensions": [{"Name": "InstanceId","Value": {"Ref": "RecoveryInstance"}}]
+        }
+      },
+      "StatusCheckInstances": {
+        "Type": "AWS::CloudWatch::Alarm",
+        "Properties": {
+          "AlarmDescription": "Trigger a reboot when instance status check fails for 5 consecutive minutes.",
+          "Namespace": "AWS/EC2" ,
+          "MetricName": "StatusCheckFailed_Instances",
+          "Statistic": "Minimum",
+          "Period": "300",
+          "EvaluationPeriods": "2",
+          "ComparisonOperator": "GreaterThanThreshold",
+          "Threshold": "0",
+          "AlarmActions": ["arn:aws:swf:us-east-1:025239092240:action/actions/AWS_EC2.InstanceId.Reboot/1.0"],
+          "Dimensions": [{"Name": "InstanceId","Value": {"Ref": "RecoveryInstance"}}]
+        }
+      }
+    }
+  }
+
+  
+  
