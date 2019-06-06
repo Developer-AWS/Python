@@ -1,17 +1,13 @@
-import boto3, copy, logging, os
+import boto3, copy, logging, os, json
 from boto3.session import Session
 
-logging.basicConfig(level=os.environ.get('LOG_LEVEL', 'DEBUG'))
-logger = logging.getLogger(__name__)
+logger = logging.getLogger()
+logger.setLevel(logging.INFO)
 
 
-arn = "XXXXXXXXXX"
+#arn = 
 
-client = boto3.client(
-    'sts',
-    aws_access_key_id="XXXXXX",
-    aws_secret_access_key="XXXXXX"
-)
+client = boto3.client('sts')
 
 response = client.assume_role(RoleArn=arn, RoleSessionName="IpsenseTagging")
 
@@ -23,11 +19,34 @@ session = Session(aws_access_key_id=response['Credentials']['AccessKeyId'],
 #Print account assume
 client = session.client('sts')
 account_id = client.get_caller_identity()["Account"]
-print(account_id)
 
+ec2 = session.client('ec2', region_name='sa-east-1')
 
+def tag_snapshots_by_volume():
+    
+    snapshots = {}
+    for response in ec2.get_paginator('describe_snapshots').paginate(OwnerIds=['self']):
+        snapshots.update([(snapshot['SnapshotId'], snapshot) for snapshot in response['Snapshots']])
+    
+    for snapshot in snapshots.values():
+        
+        response = ec2.describe_instances(
+            Filters=[{
+                    'Name': 'block-device-mapping.volume-id',
+                    'Values': [snapshot['Description']]
+                }]
+        )
+        
+        for reservation in response['Reservations']:
+            for instance in reservation['Instances']:
+                tags = boto3_tag_list_to_ansible_dict(instance.get('Tags', []))
+                cur_tags = boto3_tag_list_to_ansible_dict(snapshot.get('Tags', []))
+                new_tags = copy.deepcopy(cur_tags)
+                new_tags.update(tags)
+                if new_tags != cur_tags:
+                    logger.info('{0}: Tags changed to {1}'.format(snapshot['SnapshotId'], new_tags))
+                   # ec2.create_tags(Resources=[snapshot['SnapshotId']], Tags=ansible_dict_to_boto3_tag_list(new_tags))
 
-ec2 = session.client('ec2')
 
 def tag_snapshots():
     snapshots = {}
@@ -47,7 +66,7 @@ def tag_snapshots():
                 new_tags['Name'] += ' ' + device['DeviceName']
                 if new_tags != cur_tags:
                     logger.info('{0}: Tags changed to {1}'.format(snapshot['SnapshotId'], new_tags))
-                    ec2.create_tags(Resources=[snapshot['SnapshotId']], Tags=ansible_dict_to_boto3_tag_list(new_tags))
+                    #ec2.create_tags(Resources=[snapshot['SnapshotId']], Tags=ansible_dict_to_boto3_tag_list(new_tags))
 
     for snapshot in snapshots.values():
         if 'Used' not in snapshot:
@@ -55,29 +74,38 @@ def tag_snapshots():
             name = cur_tags.get('Name', snapshot['SnapshotId'])
             if not name.startswith('UNUSED'):
                 logger.warning('{0} Unused!'.format(snapshot['SnapshotId']))
-                cur_tags['Name'] = 'UNUSED ' + name
-                ec2.create_tags(Resources=[snapshot['SnapshotId']], Tags=ansible_dict_to_boto3_tag_list(cur_tags))
+                cur_tags['Name'] = '  SNAP SEM  TAG ' + name
+                #ec2.create_tags(Resources=[snapshot['SnapshotId']], Tags=ansible_dict_to_boto3_tag_list(cur_tags))
 
 
 def tag_volumes():
     volumes = {}
-    for response in ec2.get_paginator('describe_volumes').paginate():
-        volumes.update([(volume['VolumeId'], volume) for volume in response['Volumes']])
-
-    for response in ec2.get_paginator('describe_instances').paginate():
-        for reservation in response['Reservations']:
+    for vol_response in ec2.get_paginator('describe_volumes').paginate():
+        volumes.update([(volume['VolumeId'], volume) for volume in vol_response['Volumes']])
+    
+    logger.info('Volumes {}'.format(volumes))
+    
+    for ec2_response in ec2.get_paginator('describe_instances').paginate():
+        for reservation in ec2_response['Reservations']:
             for instance in reservation['Instances']:
                 tags = boto3_tag_list_to_ansible_dict(instance.get('Tags', []))
                 for device in instance['BlockDeviceMappings']:
+                    logger.info('Instance {}'.format(instance))
                     volume = volumes[device['Ebs']['VolumeId']]
                     volume['Used'] = True
                     cur_tags = boto3_tag_list_to_ansible_dict(volume.get('Tags', []))
                     new_tags = copy.deepcopy(cur_tags)
                     new_tags.update(tags)
-                    new_tags['Name'] += ' ' + device['DeviceName']
+                    
+                    if 'Name' in new_tags:
+                        new_tags['Name'] += ' ' + device['DeviceName']
+                    else:
+                        new_tags['Name'] = instance['InstanceId'] + ' - ' + device['DeviceName']
+                        
                     if new_tags != cur_tags:
                         logger.info('{0} Tags changed to {1}'.format(volume['VolumeId'], new_tags))
                         ec2.create_tags(Resources=[volume['VolumeId']], Tags=ansible_dict_to_boto3_tag_list(new_tags))
+
 
     for volume in volumes.values():
         if 'Used' not in volume:
@@ -86,13 +114,7 @@ def tag_volumes():
             if not name.startswith('UNUSED'):
                 logger.warning('{0} Unused!'.format(volume['VolumeId']))
                 cur_tags['Name'] = 'UNUSED ' + name
-                ec2.create_tags(Resources=[volume['VolumeId']], Tags=ansible_dict_to_boto3_tag_list(cur_tags))
-
-
-def tag_everything():
-    tag_snapshots()
-    tag_volumes()
-
+                #ec2.create_tags(Resources=[volume['VolumeId']], Tags=ansible_dict_to_boto3_tag_list(cur_tags))
 
 def boto3_tag_list_to_ansible_dict(tags_list):
     tags_dict = {}
@@ -103,6 +125,7 @@ def boto3_tag_list_to_ansible_dict(tags_list):
             tags_dict[tag['Key']] = tag['Value']
 
     return tags_dict
+    
 
 
 def ansible_dict_to_boto3_tag_list(tags_dict):
@@ -112,6 +135,8 @@ def ansible_dict_to_boto3_tag_list(tags_dict):
 
     return tags_list
 
-if __name__ == '__main__':
-    tag_everything()
 
+def lambda_handler(event, context):
+    #tag_snapshots_by_volume()
+    #tag_snapshots()
+    tag_volumes()
