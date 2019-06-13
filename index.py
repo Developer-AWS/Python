@@ -33,3 +33,9 @@ def action_instance_handler(event, context):
 			print('Stopping Instance %s  - Finished' % (instance.id))
 	else:
 		print('Instance %s already %s' % (instance.id, instance.state['Name']))
+		
+		
+		
+		
+		#cloudwatch rule {"region":"us-east-1", "action": "start", "instance_id":""}
+                 #{"region":"us-east-1", "action": "stop", "instance_id":""}
