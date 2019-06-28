@@ -11,4 +11,4 @@ Repositorio com scripts python, nodejs e ansible!
 <br>
 <b>Json - Cloudformation (automate-alarms-ipsense.json) </b> para criar alarmes de prevenção de falha nas instâncias.
 <br>
-
+<b> Script (dynamodb-backup.py) </b> O script server para executar backup das tabelas do DynamoDB.
