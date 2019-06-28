@@ -17,6 +17,7 @@ def byTimestamp(snap):
   else:
     return datetime.datetime.isoformat(datetime.datetime.now())
 
+  #Fuck função!!
 def lambda_handler(event, context):  
     source = boto3.client('rds', region_name=region)
     for instance in instances:
