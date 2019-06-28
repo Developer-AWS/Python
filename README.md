@@ -9,3 +9,6 @@ Repositorio com scripts python, nodejs e ansible!
 <br>
 <b>Script (ListBuckets.py)</b> para listar todos os buckets no s3.
 <br>
+<b>Json - Cloudformation (automate-alarms-ipsense.json) </b> para criar alarmes de prevenção de falha nas instâncias.
+<br>
+
