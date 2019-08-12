@@ -1,0 +1,308 @@
+AWSTemplateFormatVersion: '2010-09-09' 
+Description: BR-Control-Demo-Audit VPC Stack 
+Parameters: 
+  CidrBlock: 
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}' 
+    Default: 10.1.0.0/16
+    Description: VPC CIDR Block (eg 10.1.0.0/16) 
+    Type: String 
+  AvailabilityZone1: 
+    Description: Zona de Disponibilidade para o primeiro par de Subnets 
+    Type: AWS::EC2::AvailabilityZone::Name 
+  AvailabilityZone2: 
+    Description: Zona de Disponibilidade para o segundo par de Subnets 
+    Type: AWS::EC2::AvailabilityZone::Name 
+  SubnetCIDR1: 
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}' 
+    Default: 10.1.0.0/24 
+    Description: VPC CIDR Block para o subnet publica 1 
+    Type: String 
+  SubnetCIDR2: 
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}' 
+    Default: 10.1.1.0/24 
+    Description: VPC CIDR Block VPC CIDR Block para o subnet publica 2 
+    Type: String 
+  SubnetPrivCIDR1: 
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}' 
+    Default: 10.1.2.0/24 
+    Description: VPC CIDR Block VPC CIDR Block para o subnet privada 1 
+    Type: String 
+  SubnetPrivCIDR2: 
+    AllowedPattern: '((\d{1,3})\.){3}\d{1,3}/\d{1,2}' 
+    Default: 10.1.3.0/24 
+    Description: VPC CIDR Block VPC CIDR Block para o subnet privada 2 
+    Type: String 
+Resources: 
+  VPC: 
+    Type: AWS::EC2::VPC 
+    Properties: 
+      CidrBlock: 
+        Ref: CidrBlock 
+      EnableDnsHostnames: true 
+      EnableDnsSupport: true 
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+            - '' 
+            - - !Ref AWS::StackName 
+              - '-VPC' 
+        - Key: Projeto 
+          Value: BR-Project
+  InternetGateway: 
+    Type: AWS::EC2::InternetGateway 
+    Properties: 
+      Tags: 
+      - Key: Name 
+        Value: 
+          !Join 
+          - '' 
+          - - !Ref AWS::StackName 
+            - '-IGW' 
+      - Key: Projeto 
+        Value: BR-Project
+  GatewayAttachment: 
+    Type: AWS::EC2::VPCGatewayAttachment 
+    Properties: 
+      InternetGatewayId: 
+        Ref: InternetGateway 
+      VpcId: 
+        Ref: VPC 
+  NAT: 
+    DependsOn: GatewayAttachment 
+    Type: AWS::EC2::NatGateway 
+    Properties: 
+      AllocationId: 
+        Fn::GetAtt: 
+        - EIP 
+        - AllocationId 
+      SubnetId: 
+        Ref: Subnet1 
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+            - '' 
+            - - !Ref AWS::StackName 
+              - '-NGW' 
+        - Key: Projeto 
+          Value: BR-Project
+  EIP: 
+    Type: AWS::EC2::EIP 
+    Properties: 
+      Domain: vpc 
+  PrivateRoute: 
+    Type: AWS::EC2::Route 
+    DependsOn: PrivateRouteTable 
+    Properties: 
+      RouteTableId: 
+        Ref: PrivateRouteTable 
+      DestinationCidrBlock: 0.0.0.0/0 
+      NatGatewayId: 
+        Ref: NAT 
+  RouteTable: 
+    Type: AWS::EC2::RouteTable 
+    Properties: 
+      Tags: 
+        - Key: Name 
+          Value:  
+            !Join 
+          - '' 
+          - - !Ref AWS::StackName 
+            - '-PublicRouteTable' 
+        - Key: Projeto 
+          Value: BR-Project
+      VpcId: 
+        Ref: VPC 
+  PrivateRouteTable: 
+    Type: AWS::EC2::RouteTable 
+    Properties: 
+      Tags: 
+        - Key: Name 
+          Value:  
+            !Join 
+          - '' 
+          - - !Ref AWS::StackName 
+            - '-PrivateRouteTable' 
+        - Key: Projeto 
+          Value:  BR-Project
+      VpcId: 
+        Ref: VPC 
+  PublicRoute: 
+    Type: AWS::EC2::Route 
+    Properties: 
+      DestinationCidrBlock: 0.0.0.0/0 
+      GatewayId: 
+        Ref: InternetGateway 
+      RouteTableId: 
+        Ref: RouteTable 
+  Subnet1: 
+    Type: AWS::EC2::Subnet 
+    Properties: 
+      AvailabilityZone: {Ref: AvailabilityZone1} 
+      CidrBlock: {Ref: SubnetCIDR1} 
+      MapPublicIpOnLaunch: true 
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+              - '-'  
+              - - Ref: 'AWS::StackName' 
+                - Ref: AvailabilityZone1 
+                - 'publica' 
+        - Key: Projeto 
+          Value: BR-Project
+      VpcId: {Ref: VPC} 
+  Subnet2: 
+    Type: AWS::EC2::Subnet 
+    Properties: 
+      AvailabilityZone: {Ref: AvailabilityZone2} 
+      CidrBlock: {Ref: SubnetCIDR2} 
+      MapPublicIpOnLaunch: true 
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+              - '-'  
+              - - Ref: 'AWS::StackName' 
+                - Ref: AvailabilityZone2 
+                - 'publica' 
+        - Key: Projeto 
+          Value: BR-Project 
+      VpcId: {Ref: VPC} 
+  SubnetAssoc1: 
+    Type: AWS::EC2::SubnetRouteTableAssociation 
+    Properties: 
+      RouteTableId: 
+        Ref: RouteTable 
+      SubnetId: 
+        Ref: Subnet1 
+  SubnetAssoc2: 
+    Type: AWS::EC2::SubnetRouteTableAssociation 
+    Properties: 
+      RouteTableId: 
+        Ref: RouteTable 
+      SubnetId: 
+        Ref: Subnet2 
+  PrivSubnet1: 
+    Type: AWS::EC2::Subnet 
+    Properties: 
+      AvailabilityZone: {Ref: AvailabilityZone1} 
+      CidrBlock: {Ref: SubnetPrivCIDR1} 
+      MapPublicIpOnLaunch: False 
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+              - '-'  
+              - - Ref: 'AWS::StackName' 
+                - Ref: AvailabilityZone1 
+                - 'privada' 
+        - Key: Projeto 
+          Value: BR-Project
+      VpcId: {Ref: VPC} 
+  PrivSubnet2: 
+    Type: AWS::EC2::Subnet 
+    Properties: 
+      AvailabilityZone: {Ref: AvailabilityZone2} 
+      CidrBlock: {Ref: SubnetPrivCIDR2} 
+      MapPublicIpOnLaunch: False 
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+              - '-'  
+              - - Ref: 'AWS::StackName' 
+                - Ref: AvailabilityZone2 
+                - 'privada' 
+        - Key: Projeto 
+          Value: BR-Project
+      VpcId: {Ref: VPC} 
+  PrivSubnetAssoc1: 
+    Type: AWS::EC2::SubnetRouteTableAssociation 
+    Properties: 
+      RouteTableId: 
+        Ref: PrivateRouteTable 
+      SubnetId: 
+        Ref: PrivSubnet1 
+  PrivSubnetAssoc2: 
+    Type: AWS::EC2::SubnetRouteTableAssociation 
+    Properties: 
+      RouteTableId: 
+        Ref: PrivateRouteTable 
+      SubnetId: 
+        Ref: PrivSubnet2 
+  DBSecurityGroup: 
+    Type: AWS::EC2::SecurityGroup 
+    Properties:  
+      GroupName: 
+        !Join 
+          - '-'  
+          - - Ref: 'AWS::StackName'                 
+            - 'DBSecurityGroup' 
+      GroupDescription: grupo de seguranca para banco de dados       
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+              - '-'  
+              - - Ref: 'AWS::StackName'                 
+                - 'DBSecurityGroup' 
+        - Key: Projeto 
+          Value: BR-Project
+      VpcId: {Ref: VPC} 
+  APPSecurityGroup: 
+    Type: AWS::EC2::SecurityGroup 
+    Properties:  
+      GroupName: 
+        !Join 
+          - '-'  
+          - - Ref: 'AWS::StackName'                 
+            - 'APPSecurityGroup' 
+      GroupDescription: grupo de seguranca para acesso a aplicacao       
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+              - '-'  
+              - - Ref: 'AWS::StackName'                 
+                - 'APPSecurityGroup' 
+        - Key: Projeto 
+          Value: BR-Project
+      VpcId: {Ref: VPC} 
+  ELBSecurityGroup: 
+    Type: AWS::EC2::SecurityGroup 
+    Properties:  
+      GroupName: 
+        !Join 
+          - '-'  
+          - - Ref: 'AWS::StackName'                 
+            - 'ELBSecurityGroup' 
+      GroupDescription: grupo de seguranca para acesso externo       
+      Tags: 
+        - Key: Name 
+          Value: 
+            !Join 
+              - '-'  
+              - - Ref: 'AWS::StackName'                 
+                - 'ELBSecurityGroup' 
+        - Key: Projeto 
+          Value: BR-Project
+      VpcId: {Ref: VPC} 
+Outputs: 
+  VPCID: 
+    Description: O ID da VPC 
+    Value: !Ref VPC 
+    Export: 
+      Name: !Sub "${AWS::StackName}-VPCID" 
+  PublicSubnet1: 
+    Description: id da subnet publica 1 
+    Value: !Ref Subnet1 
+    Export: 
+      Name: !Sub "${AWS::StackName}-PubSubID" 
+  PublicSubnet2: 
+    Description: id da subnet publica 1 
+    Value: !Ref Subnet2 
+    Export: 
+      Name: !Sub "${AWS::StackName}-PubSubID2" 
+  
