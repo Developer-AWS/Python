@@ -1,0 +1,148 @@
+             {
+  "AWSTemplateFormatVersion": "2010-09-09",
+  "Parameters": {
+    "selectedVPCId": {
+      "Description": "Selecione uma VPC",
+      "Type": "AWS::EC2::VPC::Id"
+    }
+  },
+  "Resources": {
+    "SGASPWebserverVendasTresWebports": {
+      "Type": "AWS::EC2::SecurityGroup",
+      "Properties": {
+        "GroupDescription": "SG-XXXXX",
+        "Tags": [{
+            "Key": "Name",
+            "Value": "SG-XXXXXX"
+          }],
+        "VpcId": {
+          "Ref": "selectedVPCId"
+        },
+        "SecurityGroupIngress": [
+          {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "10480",
+            "ToPort": "10480"
+          },
+          {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "10380",
+            "ToPort": "10380"
+          },
+             {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "10880",
+            "ToPort": "10880"
+          },
+                {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "10480",
+            "ToPort": "10480"
+          },
+                {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "12280",
+            "ToPort": "12280"
+          },
+                {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "10050",
+            "ToPort": "10050"
+          },
+               {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "12180",
+            "ToPort": "12180"
+          },
+               {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "10051",
+            "ToPort": "10051"
+          },
+        {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "12080",
+            "ToPort": "12080"
+          },
+               {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "10780",
+            "ToPort": "10780"
+          },
+               {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "12180",
+            "ToPort": "12180"
+          },
+               {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "11780",
+            "ToPort": "11780"
+          },
+               {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "11180",
+            "ToPort": "11180"
+          },
+               {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "13580",
+            "ToPort": "13580"
+          },
+            {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "8980",
+            "ToPort": "8980"
+          },
+                    {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "12280",
+            "ToPort": "12280"
+          },
+                    {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "12480",
+            "ToPort": "12480"
+          },
+  
+                    {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "13080",
+            "ToPort": "13080"
+          },
+                    {
+            "IpProtocol": "tcp",
+            "CidrIp": "0.0.0.0/0",
+            "FromPort": "11080",
+            "ToPort": "11080"
+          },
+                    {
+            "IpProtocol": "tcp",
+            "CidrIp": "52.4.15.39/32",
+            "FromPort": "10051",
+            "ToPort": "10051"
+          }
+
+        ]
+      }
+    }
+  }
+}
