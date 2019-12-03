@@ -1,0 +1,504 @@
+{
+	"AWSTemplateFormatVersion": "2010-09-09",
+
+	"Description": "AWS CloudFormation for IAM - IPSense.\n Criacao dos Grupos, Roles e Users padroes",
+
+	"Parameters": {},
+  "Mappings": {
+    "Region2Principal" : {
+      "us-east-1"      : { "EC2Principal" : "ec2.amazonaws.com", "OpsWorksPrincipal" : "opsworks.amazonaws.com" }      
+    }
+
+    },
+	"Resources": {
+		"IPSensePainel": {
+			"Type": "AWS::IAM::User",
+                        "Properties": {
+                            "UserName": "NOMECLIENT-painel"
+                        }
+		},
+		"IPSenseCloudCheckr": {
+			"Type": "AWS::IAM::User",
+                        "Properties": {
+                            "UserName": "NOMECLIENT-cloudcheckr"
+                        }
+		},
+		"S3User": {
+			"Type": "AWS::IAM::User",
+                        "Properties": {
+                            "UserName": "s3-user"
+                        }
+		},
+		"SESUser": {
+			"Type": "AWS::IAM::User",
+                        "Properties": {
+                            "UserName": "ses-user"
+                        }
+		},
+		"ReadOnlyGroup": {
+			"Type": "AWS::IAM::Group",                        
+			"Properties": {
+                                "GroupName": "read-only-group",
+				"ManagedPolicyArns": ["arn:aws:iam::aws:policy/ReadOnlyAccess"]
+			}
+		},
+		"S3AccessGroup": {
+			"Type": "AWS::IAM::Group",                        
+			"Properties": {
+                                "GroupName": "s3-access-group",
+				"ManagedPolicyArns": ["arn:aws:iam::aws:policy/AmazonS3FullAccess"]
+			}
+		},
+		"CloudCheckrGroup": {
+			"Type": "AWS::IAM::Group",                        
+			"Properties": {
+                                "GroupName": "cloudcheckr-group"
+			}
+		},                
+		"AddUserInReadOnlyGroup": {
+			"Type": "AWS::IAM::UserToGroupAddition",
+			"Properties": {
+				"GroupName": {
+					"Ref": "ReadOnlyGroup"
+				},
+				"Users": [{
+					"Ref": "NOMECLIENT"
+				}]
+			}
+		},
+		"AddUserInS3AccessGroup": {
+			"Type": "AWS::IAM::UserToGroupAddition",
+			"Properties": {
+				"GroupName": {
+					"Ref": "S3AccessGroup"
+				},
+				"Users": [{
+					"Ref": "S3User"
+				}]
+			}
+		},
+		"AddUserInCloudCheckrGroup": {
+			"Type": "AWS::IAM::UserToGroupAddition",
+			"Properties": {
+				"GroupName": {
+					"Ref": "CloudCheckrGroup"
+				},
+				"Users": [{
+					"Ref": "NOMECLIENT-SERVICO"
+				}]
+			}
+		},                
+		"EC2ActionPolicies": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "CLIENTNOME-Action-EC2",
+				"PolicyDocument": {
+					"Statement": [{
+						"Effect": "Allow",
+						"Action": [
+							"ec2:DescribeInstances",
+							"ec2:RebootInstances",
+							"ec2:StartInstances",
+							"ec2:StopInstances"
+						],
+						"Resource": "*"
+					}]
+				},
+				"Groups": [{
+					"Ref": "ReadOnlyGroup"
+				}]
+			}
+		},
+		"CloudCheckerPolicies01": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "NOMECLIENT-CloudCheckr-01",
+				"PolicyDocument": {
+                                        "Statement": [{
+                                            "Effect": "Allow",
+                                            "Resource": "*",
+                                            "Action": [
+                                                "acm:DescribeCertificate",
+                                                "acm:ListCertificates",
+                                                "acm:GetCertificate",
+                                                "cloudformation:DescribeStacks",
+                                                "cloudformation:GetStackPolicy",
+                                                "cloudformation:GetTemplate",
+                                                "cloudformation:ListStackResources",
+                                                "cloudfront:GetDistributionConfig",
+                                                "cloudfront:GetStreamingDistributionConfig",
+                                                "cloudtrail:DescribeTrails",
+                                                "cloudtrail:GetTrailStatus",
+                                                "cloudwatch:DescribeAlarms",
+                                                "cloudwatch:GetMetricStatistics",
+                                                "cloudwatch:ListMetrics",
+                                                "datapipeline:ListPipelines",
+                                                "datapipeline:GetPipelineDefinition",
+                                                "datapipeline:DescribePipelines",
+                                                "directconnect:DescribeLocations",
+                                                "directconnect:DescribeConnections",
+                                                "directconnect:DescribeVirtualInterfaces",
+                                                "dynamodb:ListTables",
+                                                "dynamodb:DescribeTable",
+                                                "ec2:GetConsoleOutput",
+                                                "ec2:ModifyReservedInstances",
+                                                "elasticmapreduce:DescribeJobFlows"
+                                            ]					
+                                        }
+                                    ]
+				},
+				"Groups": [{
+					"Ref": "CloudCheckrGroup"
+				}]
+			}
+		},
+		"CloudCheckerPolicies02": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "NOMECLIENT-CloudCheckr-02",
+				"PolicyDocument": {
+                                        "Statement": [{
+                                            "Effect": "Allow",
+                                            "Resource": "*",
+                                            "Action": [
+                                                "autoscaling:Describe*",                                                
+                                                "cloudfront:List*",
+                                                "cloudhsm:Describe*",
+                                                "cloudhsm:List*",
+                                                "cloudsearch:Describe*",
+                                                "config:Describe*",
+                                                "ec2:Describe*",
+                                                "ecs:Describe*",
+                                                "ecs:List*",
+                                                "elasticache:Describe*",
+                                                "storagegateway:Describe*",
+                                                "storagegateway:List*"                                                                                              
+                                            ]					
+                                        }
+                                    ]
+				},
+				"Groups": [{
+					"Ref": "CloudCheckrGroup"
+				}]
+			}
+		},
+		"CloudCheckerPolicies03": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "IPSense-CloudCheckr-03",
+				"PolicyDocument": {
+                                        "Statement": [{
+                                            "Effect": "Allow",
+                                            "Resource": "*",
+                                            "Action": [
+                                                "elasticbeanstalk:Describe*",
+                                                "elasticloadbalancing:Describe*",
+                                                "elasticmapreduce:Describe*",
+                                                "elasticmapreduce:List*",                                                
+                                                "glacier:List*",
+                                                "iam:Get*",
+                                                "iam:List*",
+                                                "rds:Describe*",
+                                                "rds:List*",
+                                                "s3:List*",
+                                                "s3:Get*",
+                                                "swf:List*",
+                                                "workspaces:Describe*"
+                                            ]					
+                                        }
+                                    ]
+				},
+				"Groups": [{
+					"Ref": "CloudCheckrGroup"
+				}]
+			}
+		},                
+		"CloudCheckerPolicies04": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "NOMECLIENT-CloudCheckr-04",
+				"PolicyDocument": {
+                                        "Statement": [{
+                                            "Effect": "Allow",
+                                            "Resource": "*",
+                                            "Action": [
+                                                "glacier:DescribeVault",
+                                                "glacier:GetVaultNotifications",
+                                                "glacier:DescribeJob",
+                                                "glacier:GetJobOutput",
+                                                "iam:GenerateCredentialReport",
+                                                "kinesis:ListStreams",
+                                                "kinesis:DescribeStream",
+                                                "kinesis:GetShardIterator",
+                                                "kinesis:GetRecords",
+                                                "kms:Describe*",
+                                                "kms:GetKeyPolicy",
+                                                "kms:GetKeyRotationStatus",
+                                                "kms:ListAliases",
+                                                "kms:ListKeys",
+                                                "kms:ListKeyPolicies",
+                                                "lambda:ListFunctions",
+                                                "redshift:Describe*",
+                                                "redshift:ViewQueriesInConsole",
+                                                "route53:List*",
+                                                "sdb:ListDomains",
+                                                "sdb:DomainMetadata",
+                                                "ses:ListIdentities",
+                                                "ses:Get*",
+                                                "sns:List*",
+                                                "sqs:GetQueueAttributes",
+                                                "sqs:ListQueues",
+                                                "support:*"                                                
+                                            ]					
+                                        }
+                                    ]
+				},
+				"Groups": [{
+					"Ref": "CloudCheckrGroup"
+				}]
+			}
+		},                
+		"CloudCheckerCloudWatchLogsPolicies": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "NOMECLIENT-CloudCheckr-CloudWatchLogs",
+				"PolicyDocument": {
+                                    "Statement": [
+                                        {
+                                            "Sid": "CloudWatchLogsSpecific",
+                                            "Effect": "Allow",
+                                            "Action": [
+                                                "logs:GetLogEvents",
+                                                "logs:DescribeLogGroups",
+                                                "logs:DescribeLogStreams"
+                                            ],
+                                            "Resource": [
+                                                "arn:aws:logs:*:*:*"
+                                            ]
+                                        }                                        
+                                    ]
+				},
+				"Groups": [{
+					"Ref": "CloudCheckrGroup"
+				}]
+			}
+		},                
+		"SESPolicies": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "NOMECLIENT-SES-Access",
+				"PolicyDocument": {
+					"Statement": [{
+						"Effect": "Allow",
+						"Action": "ses:SendRawEmail",
+						"Resource": "*"
+					}]
+				},
+				"Users": [{
+					"Ref": "SESUser"
+				}]
+			}
+		},
+		"EC2ActionPolicies": {
+			"Type": "AWS::IAM::Policy",
+			"Properties": {
+				"PolicyName": "NOMECLIENT-Action-EC2",
+				"PolicyDocument": {
+					"Statement": [{
+						"Effect": "Allow",
+						"Action": [
+							"ec2:DescribeInstances",
+							"ec2:RebootInstances",
+							"ec2:StartInstances",
+							"ec2:StopInstances"
+						],
+						"Resource": "*"
+					}]
+				},
+				"Groups": [{
+					"Ref": "ReadOnlyGroup"
+				}]
+			}
+		},                
+		"MultiViewRole": {
+			"Type": "AWS::IAM::Role",   
+			"Properties": {
+                                "RoleName": "multiview-NOMECLIENT",
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"AWS": "arn:aws:iam::NUMBERACCOUNT:root"
+						},
+						"Action": ["sts:AssumeRole"]
+					}]
+				},
+				"Path": "/",
+				"ManagedPolicyArns": ["arn:aws:iam::aws:policy/AdministratorAccess"]
+			}
+		},
+		"MultiViewReadRole": {
+			"Type": "AWS::IAM::Role",   
+			"Properties": {
+                                "RoleName": "multiview-read",
+				"AssumeRolePolicyDocument": {
+					"Version": "2012-10-17",
+					"Statement": [{
+						"Effect": "Allow",
+						"Principal": {
+							"AWS": "arn:aws:iam::NUMBERACCOUT:root"
+						},
+						"Action": ["sts:AssumeRole"]
+					}]
+				},
+				"Path": "/",
+				"ManagedPolicyArns": ["arn:aws:iam::aws:policy/ReadOnlyAccess"]
+			}
+		},                
+		"InstanceRole": {
+                    "Type": "AWS::IAM::Role",
+                    "Properties": {
+                            "RoleName": "instance-role",
+                            "AssumeRolePolicyDocument": {
+                                    "Version": "2012-10-17",
+                                    "Statement": [{
+                                        "Effect": "Allow",
+                                        "Principal": { "Service": "ec2.amazonaws.com"},
+                                        "Action": ["sts:AssumeRole"]
+                                    }]
+                            },
+                            "Path": "/",
+                            "ManagedPolicyArns": [
+                                "arn:aws:iam::aws:policy/AmazonS3FullAccess",
+                                "arn:aws:iam::aws:policy/CloudWatchLogsFullAccess"
+                            ]
+                    }
+		},
+                "OpsWorksServiceRole": {
+                   "Type": "AWS::IAM::Role",
+                   "Properties": {
+                        "RoleName": "opsworks-service-role",
+                        "AssumeRolePolicyDocument": {
+                            "Statement": [{
+                                "Effect": "Allow",
+                                "Principal": { "Service": [{ "Fn::FindInMap" : ["Region2Principal", {"Ref" : "AWS::Region"}, "OpsWorksPrincipal"]}] },
+                                "Action": [ "sts:AssumeRole" ]
+                            }]
+                        },
+                        "Path": "/",
+                        "Policies": [{
+                            "PolicyName": "opsworks-service",
+                            "PolicyDocument": {
+                                "Statement": [{
+                                    "Effect": "Allow",
+                                    "Action": [ 
+                                        "ec2:*", 
+                                        "iam:PassRole",
+                                        "cloudwatch:GetMetricStatistics",
+                                        "cloudwatch:DescribeAlarms",
+                                        "ecs:*",
+                                        "elasticloadbalancing:*",
+                                        "rds:*"
+                                    ],
+                                    "Resource": "*"
+                                }]
+                            }
+                        }]
+                    }
+                },
+                "OpsWorksInstanceProfile": {
+                    "Type": "AWS::IAM::InstanceProfile",
+                    "Properties": {
+                        "Path": "/",
+                        "Roles": [ { "Ref": "InstanceRole" } ]
+                    }
+                },                
+		"NOMECLIENTPainelKey": {
+			"Type": "AWS::IAM::AccessKey",
+			"Properties": {
+				"UserName": {
+					"Ref": "NOMECLIENT-SERVICE"
+				}
+			}
+		},
+		"IPSenseCloudCheckrKey": {
+			"Type": "AWS::IAM::AccessKey",
+			"Properties": {
+				"UserName": {
+					"Ref": "NOMECLIENT-SERVICE"
+				}
+			}
+		},
+		"S3UserKey": {
+			"Type": "AWS::IAM::AccessKey",
+			"Properties": {
+				"UserName": {
+					"Ref": "S3User"
+				}
+			}
+		},
+		"SESUserKey": {
+			"Type": "AWS::IAM::AccessKey",
+			"Properties": {
+				"UserName": {
+					"Ref": "SESUser"
+				}
+			}
+		}
+	},
+	"Outputs": {
+		"IPSensePainel": {
+			"Value": {
+				"Fn::Join": [" : ", [{
+					"Ref": "NOMECLIENTPainelKey"
+				}, {
+					"Fn::GetAtt": ["NOMEDAKEYDESEJADA", "SecretAccessKey"]
+				}]]
+			},
+			"Description": "Credenciais User NOMEDORECURSOACESSADO"
+		},
+		"IPSenseCloudCheckr": {
+			"Value": {
+				"Fn::Join": [" : ", [{
+					"Ref": "IPSenseCloudCheckrKey"
+				}, {
+					"Fn::GetAtt": ["IPSenseCloudCheckrKey", "SecretAccessKey"]
+				}]]
+			},
+			"Description": "Credenciais User NOMECLIENTCloudCheckr"
+		},
+		"S3User": {
+			"Value": {
+				"Fn::Join": [" : ", [{
+					"Ref": "S3UserKey"
+				}, {
+					"Fn::GetAtt": ["S3UserKey", "SecretAccessKey"]
+				}]]
+			},
+			"Description": "Credenciais User S3User"
+		},
+		"SESUser": {
+			"Value": {
+				"Fn::Join": [" : ", [{
+					"Ref": "SESUserKey"
+				}, {
+					"Fn::GetAtt": ["SESUserKey", "SecretAccessKey"]
+				}]]
+			},
+			"Description": "Credenciais User SESUser"
+		},
+		"InstanceRole": {
+                    "Value": {"Fn::GetAtt" : ["InstanceRole", "Arn"] },
+                    "Description": "ARN Instance Role"
+		},
+		"OpsWorksServiceRole": {
+                    "Value": {"Fn::GetAtt" : ["OpsWorksServiceRole", "Arn"] },
+                    "Description": "ARN Opsworks Service Role"
+		},
+		"OpsWorksInstanceProfile": {
+                    "Value": {"Fn::GetAtt" : ["OpsWorksInstanceProfile", "Arn"] },
+                    "Description": "ARN Opsworks Instance Profile"
+		}                
+	}
+}
