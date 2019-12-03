@@ -1,0 +1,286 @@
+{
+    "AWSTemplateFormatVersion" : "2010-09-09",
+    "Description" : "Stack para Criacao das dependencias das rotinas administrativas automatizadas",
+    "Parameters" : {
+        "RetentionSnapshot" : {
+            "Default" : "30",
+            "Description" : "Retention days of the generated Snapshots",
+            "Type" : "Number",
+            "MinValue" : "1",
+            "MaxValue" : "90"
+        },
+        "RegionSnapshot":{
+            "Default" : "us-east-1",
+            "Description" : "Region to generated Snapshots",
+            "Type" : "String",
+            "AllowedValues": ["us-east-1","sa-east-1","us-west-1","us-west-2"]
+        },
+        "CreateActionFunction" : {
+          "Description" : "Create Lambda function Start/Stop Instances",
+          "Default" : "false",
+          "Type" : "String",
+          "AllowedValues" : ["false", "true"]
+        }
+    },
+    "Conditions" : {
+        "CreateActionFunctionResource" : {"Fn::Equals" : [{"Ref" : "CreateActionFunction"}, "true"]}
+    },    
+    "Resources" : {    
+        "AutomateRole": {
+            "Type": "AWS::IAM::Role",
+            "Properties": {
+                "AssumeRolePolicyDocument": {
+                    "Version": "2012-10-17",
+                    "Statement": [{
+                        "Effect": "Allow",
+                        "Principal": {"Service": ["lambda.amazonaws.com"]},
+                        "Action": ["sts:AssumeRole"]
+                    }]
+                },
+                "Path": "/"
+            }
+        },
+        "AutomatePolicies" : {
+            "Type" : "AWS::IAM::Policy",
+            "Properties" : {
+                "PolicyName" : "automate-policy",
+                "PolicyDocument" : {
+                    "Statement": [{
+                        "Effect"   : "Allow",
+                        "Action"   : [
+                            "ec2:CopyImage",
+                            "ec2:CopySnapshot",
+                            "ec2:CreateImage",
+                            "ec2:CreateSnapshot",
+                            "ec2:CreateTags",
+                            "ec2:DeleteSnapshot",
+                            "ec2:DeleteTags",
+                            "ec2:DescribeAccountAttributes",
+                            "ec2:DescribeAddresses",
+                            "ec2:DescribeAvailabilityZones",
+                            "ec2:DescribeImageAttribute",
+                            "ec2:DescribeImages",
+                            "ec2:DescribeInstanceAttribute",
+                            "ec2:DescribeInstanceStatus",
+                            "ec2:DescribeInstances",
+                            "ec2:DescribeRegions",
+                            "ec2:DescribeReservedInstances",
+                            "ec2:DescribeReservedInstancesListings",
+                            "ec2:DescribeReservedInstancesModifications",
+                            "ec2:DescribeReservedInstancesOfferings",
+                            "ec2:DescribeSnapshotAttribute",
+                            "ec2:DescribeSnapshots",
+                            "ec2:DescribeTags",
+                            "ec2:DescribeVolumeAttribute",
+                            "ec2:DescribeVolumeStatus",
+                            "ec2:DescribeVolumes",
+                            "ec2:ImportSnapshot",
+                            "ec2:ImportVolume",
+                            "ec2:ModifyImageAttribute",
+                            "ec2:ModifyInstanceAttribute",
+                            "ec2:ModifyInstancePlacement",
+                            "ec2:ModifyReservedInstances",
+                            "ec2:ModifySnapshotAttribute",
+                            "ec2:ModifyVolumeAttribute",
+                            "ec2:MonitorInstances",
+                            "ec2:RebootInstances",
+                            "ec2:RegisterImage",
+                            "ec2:ReportInstanceStatus",
+                            "ec2:ResetInstanceAttribute",
+                            "ec2:ResetSnapshotAttribute",
+                            "ec2:RunInstances",
+                            "ec2:StartInstances",
+                            "ec2:StopInstances",
+                            "ec2:TerminateInstances",
+                            "ec2:UnmonitorInstances",
+                            "cloudwatch:*",
+                            "logs:*"
+                        ],
+                        "Resource" : "*"
+                    }]
+                },
+                "Roles" : [{ "Ref" : "AutomateRole" }]
+            }
+        },
+        "CreateSnapshotFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": "CreateSnapshot",
+                "Description": "Função para criação de snapshots",
+                "Handler": "index.create_snapshot_handler",
+                "Role": { "Fn::GetAtt" : ["AutomateRole", "Arn"] },
+                "Code":{
+                    "ZipFile" : { "Fn::Join" : ["\n", [
+                        "import time",
+                        "import boto3\n",
+                        "def create_snapshot_handler(event, context):",
+                        "\tprint 'Region: %s' % event['region']",
+                        "\taccountId = context.invoked_function_arn.split(':')[4]",
+                        "\tec2 = boto3.resource('ec2', region_name=event['region'])\n",    
+                        "\tvolumes = ec2.volumes.all()",
+                        "\tfor volume in volumes:",
+                        "\t\tif len(volume.attachments) > 0:",
+                        "\t\t\tprint 'Snapshot from EBS volume %s on instance %s - Initiaded' % (volume.id, volume.attachments[0]['InstanceId'])\n",
+                        "\t\t\tdescription = 'Instance:%s, Volume:%s, Partition:%s' % (volume.attachments[0]['InstanceId'], volume.id, volume.attachments[0]['Device'])\n",
+                        "\t\t\tsnapshot = volume.create_snapshot(Description=description)\n",
+                        "\t\t\tif volume.tags is not None:",
+                        "\t\t\t\tsnapshot.create_tags(Tags=volume.tags)\n",
+                        "\t\t\tprint 'Snapshot from EBS volume %s on instance %s - Completed' % (volume.id, volume.attachments[0]['InstanceId'])\n",
+                        "\t\t\ttime.sleep(2)",
+                        "\tclean_snapshot(ec2, accountId)\n\n",
+                        "def clean_snapshot(ec2, accountId):",
+                        "\tfilters = [{'Name': 'tag-key', 'Values': ['Backup']},{'Name': 'tag-value', 'Values': ['false']}]",
+                        "\tsnapshots = ec2.snapshots.filter(OwnerIds=[accountId], Filters=filters, MaxResults=500)",
+                        "\tfor snapshot in snapshots:",
+                        "\t\tsnapshot_id = snapshot.id",
+                        "\t\tsnapshot_volume = snapshot.volume_id",	    
+                        "\t\tprint 'Snapshot %s from EBS volume %s - Deleted' % (snapshot_id, snapshot_volume)",
+                        "\t\ttry:",
+                        "\t\t\tsnapshot.delete()",
+                        "\t\texcept Exception as e:",
+                        "\t\t\tpass"
+                    ]]}
+                },
+                "Runtime": "python2.7",
+                "Timeout": "180"
+            }
+        },
+        "DeleteOldSnapshotsFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Properties": {
+                "FunctionName": "DeleteOldSnapshots",
+                "Description": "Função para deletar snapshots antigos",
+                "Handler": "index.delete_old_snapshot_handler",
+                "Role": { "Fn::GetAtt" : ["AutomateRole", "Arn"] },
+                "Code":{
+                    "ZipFile" : { "Fn::Join" : ["\n", [
+                        "import datetime",
+                        "import boto3\n",
+                        "def delete_old_snapshot_handler(event, context):",
+                        "\tprint 'Region: %s' % event['region']",
+                        "\taccountId = context.invoked_function_arn.split(':')[4]\n",
+                        "\toldest_datetime = datetime.date.today() - datetime.timedelta(days=event['retention_days'])",
+                        "\tprint 'Date for remove: %s' % oldest_datetime\n",    
+                        "\tec2 = boto3.resource('ec2', region_name=event['region'])",
+                        "\tsnapshots = ec2.snapshots.filter(OwnerIds=[accountId], MaxResults=500)",
+                        "\tfor snapshot in snapshots:",
+                        "\t\tsnapshot_id = snapshot.id",
+                        "\t\tsnapshot_volume = snapshot.volume_id",
+                        "\t\tsnapshot_date = snapshot.start_time.strftime('%Y-%m-%d')\n",
+                        "\t\tif snapshot.state == 'completed' and snapshot_date <= oldest_datetime.strftime('%Y-%m-%d'):",
+                        "\t\t\tprint 'Snapshot %s from EBS volume %s date %s - Deleting' % (snapshot_id, snapshot_volume, snapshot_date)",
+                        "\t\t\ttry:",
+                        "\t\t\t\tsnapshot.delete()",
+                        "\t\t\t\tprint 'Snapshot %s from EBS volume %s date %s - Deleted' % (snapshot_id, snapshot_volume, snapshot_date)",
+                        "\t\t\texcept Exception as e:",
+                        "\t\t\t\tpass"
+                    ]]}
+                },
+                "Runtime": "python2.7",
+                "Timeout": "300"
+            }
+        },
+        "ActionInstanceFunction": {
+            "Type": "AWS::Lambda::Function",
+            "Condition" : "CreateActionFunctionResource",
+            "Properties": {
+                "FunctionName": "ActionInstance",
+                "Description": "Função para iniciar e parar Instancias",
+                "Handler": "index.action_instance_handler",
+                "Role": { "Fn::GetAtt" : ["AutomateRole", "Arn"] },
+                "Code":{
+                    "ZipFile" : { "Fn::Join" : ["\n", [
+                        "import time",
+                        "import boto3\n",
+                        "instance_states = {'start':('stopping','stopped'),'stop':('pending','running')}\n",
+                        "def action_instance_handler(event, context):",
+                        "\taction = event['action']",
+                        "\tec2 = boto3.resource('ec2', region_name=event['region'])\n",    
+                        "\tinstance = ec2.Instance(event['instance_id'])",
+                        "\tif instance.state['Name'] in ('shutting-down','terminated'):",
+                        "\t\tprint('Instance %s - %s' % (instance.id, instance.state))",
+                        "\telif instance.state['Name'] in instance_states[action]:",
+                        "\t\twhile instance.state['Name'] != instance_states[action][1]:",
+                        "\t\t\ttime.sleep(10)",
+                        "\t\t\tinstance.reload()",
+                        "\t\t\tprint('Instance %s is %s' % (instance.id, instance_states[action][0]))",
+                        "\t\tif action == 'start':",
+                        "\t\t\tprint('Starting Instance %s - Initiated' % (instance.id))",
+                        "\t\t\tinstance.start()",
+                        "\t\t\twhile instance.state['Name'] != 'running':",
+                        "\t\t\t\ttime.sleep(10)",
+                        "\t\t\t\tinstance.reload()",
+                        "\t\t\t\tprint('Instance %s is starting' % (instance.id))",
+                        "\t\t\tprint('Starting Instance %s  - Finished' % (instance.id))",
+                        "\t\telif action == 'stop':",
+                        "\t\t\tprint('Stopping Instance %s - Initiated' % (instance.id))",
+                        "\t\t\tinstance.stop()",
+                        "\t\t\twhile instance.state['Name'] != 'stopped':",
+                        "\t\t\t\ttime.sleep(10)",
+                        "\t\t\t\tinstance.reload()",
+                        "\t\t\t\tprint('Instance %s is stopping' % (instance.id))",
+                        "\t\t\tprint('Stopping Instance %s  - Finished' % (instance.id))",           
+                        "\telse:",
+                        "\t\tprint('Instance %s already %s' % (instance.id, instance.state['Name']))"
+                    ]]}
+                },
+                "Runtime": "python2.7",
+                "Timeout": "300"
+            }
+        },        
+        "CreateSnapshotScheduledRule": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Name" : "create_snapshot_daily",
+                "Description": "Daily Snapshot Creation",
+                "ScheduleExpression": "cron(0 4 * * ? *)",
+                "State": "ENABLED",
+                "Targets": [{
+                    "Arn": { "Fn::GetAtt": ["CreateSnapshotFunction", "Arn"] },
+                    "Id": "CreateSnapshot",
+                    "Input": {"Fn::Join" : ["", ["{\"region\":\"", { "Ref" : "RegionSnapshot"}, "\"}"] ] }
+                }]
+          }
+        },
+        "PermissionForEventsToInvokeCreateSnapshotFunction": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": { "Ref": "CreateSnapshotFunction" },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": { "Fn::GetAtt": ["CreateSnapshotScheduledRule", "Arn"] }
+            }
+        },
+        "DeletoOldSnapshotsScheduledRule": {
+            "Type": "AWS::Events::Rule",
+            "Properties": {
+                "Name" : "delete_old_snapshots_daily",
+                "Description": "Daily Snapshot Removal",
+                "ScheduleExpression": "cron(30 4 * * ? *)",
+                "State": "ENABLED",
+                "Targets": [{
+                    "Arn": { "Fn::GetAtt": ["DeleteOldSnapshotsFunction", "Arn"] },
+                    "Id": "DeleteOldSnapshots",
+                    "Input": {"Fn::Join" : [ "", [ "{\"region\":\"",{"Ref" : "RegionSnapshot"},"\",\"retention_days\":", {"Ref" : "RetentionSnapshot"}, "}" ]] }
+                }]
+          }
+        },
+        "PermissionForEventsToInvokeDeleteOldSnapshotsFunction": {
+            "Type": "AWS::Lambda::Permission",
+            "Properties": {
+                "FunctionName": { "Ref": "DeleteOldSnapshotsFunction" },
+                "Action": "lambda:InvokeFunction",
+                "Principal": "events.amazonaws.com",
+                "SourceArn": { "Fn::GetAtt": ["DeletoOldSnapshotsScheduledRule", "Arn"] }
+            }
+        }        
+    },
+    "Outputs" : {
+        "AutomateRole": {
+            "Value" : { "Fn::GetAtt" : ["AutomateRole", "Arn"] }
+        },
+        "AutomatePolicies": {
+            "Value" : { "Ref" : "AutomatePolicies" }
+        }
+    }
+}
