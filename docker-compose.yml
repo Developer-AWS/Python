@@ -1,0 +1,56 @@
+version: "3"
+#################################
+# https://stackoverflow.com/questions/51445846/elasticsearch-max-virtual-memory-areas-vm-max-map-count-65530-is-too-low-inc
+#
+# echo "vm.max_map_count = 262144" >>/etc/sysctl.conf
+# executar o comando ABAIXO
+# sudo sysctl -w vm.max_map_count=262144
+# -------------------------------
+# curl -O https://raw.githubusercontent.com/luvres/jenkins/master/sonarqube/docker-compose.yml
+#
+# docker-compose up -d
+#
+# http://localhost:23456
+#################################
+services:
+  sonarqube:
+    container_name: Sonar
+    image: sonarqube:lts
+    networks:
+      - sonarnet
+    ports:
+      - "8181:9000"
+    environment:
+      - sonar.jdbc.username=sonar
+      - sonar.jdbc.password=sonar
+      - sonar.jdbc.url=jdbc:postgresql://db/sonar
+    volumes:
+      - conf:/opt/sonarqube/conf
+      - data:/opt/sonarqube/data
+      - logs:/opt/sonarqube/logs
+      - extensions:/opt/sonarqube/extensions
+    depends_on:
+      - db
+
+  db:
+    container_name: db
+    image: postgres:alpine
+    networks:
+      - sonarnet
+    environment:
+      - POSTGRES_DB=sonar
+      - POSTGRES_USER=sonar
+      - POSTGRES_PASSWORD=sonar
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+networks:
+  sonarnet:
+
+volumes:
+  pgdata:
+  conf:
+  data:
+  logs:
+  extensions:
+
